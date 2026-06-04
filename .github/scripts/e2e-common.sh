@@ -67,13 +67,13 @@ malformed_test() {
     -H "Content-Type: application/json" -d '{}')
   assert_status "malformed-empty-body" "400" "$status"
 
-  # SQL injection attempt in string field → should return 400 (ValidationPipe rejects)
+  # SQL injection attempt in string field → should return 400/422 (ValidationPipe) or
+  # be accepted as a safe string; the server must NOT crash (not 500)
+  local sql_body
+  sql_body='{"name": "'"'"'; DROP TABLE products; --"}'
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$url" \
     -H "Content-Type: application/json" \
-    -d '{"name": "'; DROP TABLE products; --"}')
-  # This won't cause SQL injection (Prisma uses parameterized queries) but
-  # ValidationPipe may reject or accept it (it's a valid string value);
-  # the server must NOT crash (not 500)
+    -d "$sql_body")
   if [ "$status" = "500" ]; then
     echo "FAIL [sql-injection-attempt]: server returned 500 (crash)"
     exit 1
