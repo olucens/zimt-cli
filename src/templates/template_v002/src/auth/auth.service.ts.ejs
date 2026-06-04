@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { comparePassword, hashPassword } from '../crypto/hashPassword';
+import { comparePassword } from '../crypto/hashPassword';
 import { CreateUserDto } from '../user/dto/user.dto';
 import { UserService } from '../user/user.service';
 import { LoginDto } from './dto/login.dto';
@@ -20,11 +20,7 @@ export class AuthService {
 
   async signup(createUserDto: CreateUserDto) {
     try {
-      const hashedPassword = await hashPassword(createUserDto.password);
-      return await this.userService.create({
-        ...createUserDto,
-        password: hashedPassword,
-      });
+      return await this.userService.create(createUserDto);
     } catch (error: any) {
       if (error?.code === 'P2002') {
         throw new ConflictException('Login already exists');
