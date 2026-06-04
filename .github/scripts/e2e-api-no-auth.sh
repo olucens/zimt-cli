@@ -13,7 +13,7 @@ echo "=== E2E: api-no-auth scenario ==="
 
 cd "$WORK_DIR"
 
-node "$CLI" init test-api-no-auth --pm npm <<< $'test-api-no-auth\n'
+node "$CLI" init test-api-no-auth --pm npm
 cd test-api-no-auth
 
 cat > .env <<EOF

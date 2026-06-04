@@ -14,7 +14,7 @@ echo "=== E2E: blank scenario ==="
 cd "$WORK_DIR"
 
 # 1. Generate blank project
-node "$CLI" init test-blank --pm npm <<< $'test-blank\n'
+node "$CLI" init test-blank --pm npm
 cd test-blank
 
 # 2. Copy env

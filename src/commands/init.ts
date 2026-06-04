@@ -154,6 +154,19 @@ export async function promptProjectConfig(
 ): Promise<ProjectConfig> {
   prompts.intro(chalk.cyan('ZIMT CLI — Create a production-ready NestJS project'));
 
+  // Non-interactive mode: all required fields supplied via CLI args — skip all prompts.
+  if (projectName && pmFlag) {
+    return {
+      name: projectName,
+      packageManager: pmFlag,
+      database: 'prisma-postgresql',
+      authStrategy: 'jwt',
+      description: 'A production-ready NestJS application',
+      author: '',
+      initializeGit: false,
+    };
+  }
+
   const detectedPm = detectPackageManager(process.cwd());
 
   const config = await prompts.group(

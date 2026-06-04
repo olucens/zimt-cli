@@ -12,7 +12,7 @@ echo "=== E2E: api-full scenario ==="
 
 cd "$WORK_DIR"
 
-node "$CLI" init test-api-full --pm npm <<< $'test-api-full\n'
+node "$CLI" init test-api-full --pm npm
 cd test-api-full
 
 cat > .env <<EOF

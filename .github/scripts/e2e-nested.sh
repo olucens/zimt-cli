@@ -10,7 +10,7 @@ echo "=== E2E: nested scenario ==="
 
 cd "$WORK_DIR"
 
-node "$CLI" init test-nested --pm npm <<< $'test-nested\n'
+node "$CLI" init test-nested --pm npm
 cd test-nested
 
 cat > .env <<EOF

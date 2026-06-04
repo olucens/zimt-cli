@@ -11,7 +11,7 @@ echo "=== E2E: auth-only scenario ==="
 
 cd "$WORK_DIR"
 
-node "$CLI" init test-auth --pm npm <<< $'test-auth\n'
+node "$CLI" init test-auth --pm npm
 cd test-auth
 
 cat > .env <<EOF
