@@ -104,6 +104,16 @@ export const authCommand = new Command('auth')
         s.stop('✓ Copied exceptions.filter.ts');
       }
 
+      // Replace app.controller.ts with the auth-aware version that marks /health as @Public()
+      const controllerSrc = path.join(authTemplateDir, 'src', 'app.controller.ts.ejs');
+      const controllerDest = path.join(targetDir, 'src', 'app.controller.ts');
+      if (fs.existsSync(controllerSrc)) {
+        s.start('Updating app.controller.ts...');
+        const controllerContent = await fs.readFile(controllerSrc, 'utf-8');
+        await fs.writeFile(controllerDest, renderTemplate(controllerContent, context), 'utf-8');
+        s.stop('✓ Updated app.controller.ts');
+      }
+
       // Update prisma/schema.prisma — add User model
       s.start('Updating prisma/schema.prisma...');
       await appendUserModelToSchema(targetDir);
