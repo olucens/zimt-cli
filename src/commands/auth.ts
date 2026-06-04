@@ -4,7 +4,7 @@ import * as path from 'path';
 import chalk from 'chalk';
 import * as prompts from '@clack/prompts';
 import { Project, SyntaxKind } from 'ts-morph';
-import { copyTemplateFiles, TemplateContext } from '../utils/template-manager';
+import { copyTemplateFiles, renderTemplate, TemplateContext } from '../utils/template-manager';
 import { PackageManager } from '../types';
 
 // @ts-ignore
@@ -99,11 +99,8 @@ export const authCommand = new Command('auth')
       const filterDest = path.join(targetDir, 'src', 'exceptions.filter.ts');
       if (fs.existsSync(filterSrc) && !fs.existsSync(filterDest)) {
         s.start('Copying exceptions.filter.ts...');
-        await copyTemplateFiles(
-          path.join(authTemplateDir, 'src'),
-          path.join(targetDir, 'src'),
-          context,
-        );
+        const filterContent = await fs.readFile(filterSrc, 'utf-8');
+        await fs.writeFile(filterDest, renderTemplate(filterContent, context), 'utf-8');
         s.stop('✓ Copied exceptions.filter.ts');
       }
 

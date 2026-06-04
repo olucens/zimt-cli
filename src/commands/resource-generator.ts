@@ -383,9 +383,9 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${prismaAccessor}.findMany(
-      parentId ? { where: { parentId } } : undefined,
-    );
+    const items = await this.prisma.${prismaAccessor}.findMany({
+      ...(parentId ? { where: { parentId } } : {}),
+    });
     return items.map((item) => this.mapToDomain(item));
   }
 
@@ -621,9 +621,9 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${prismaAccessor}.findMany(
-      parentId ? { where: { parentId } } : undefined,
-    );
+    const items = await this.prisma.${prismaAccessor}.findMany({
+      ...(parentId ? { where: { parentId } } : {}),
+    });
     return items.map((item) => this.mapToDomain(item));
   }
 

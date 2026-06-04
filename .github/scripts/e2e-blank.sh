@@ -31,8 +31,15 @@ EOF
 # 3. Install deps
 npm install --prefer-offline
 
-# 4. Prisma
-npx prisma db push --skip-generate --accept-data-loss
+# 4. Prisma — add a minimal model so the client can be generated (PrismaService requires it)
+cat >> prisma/schema.prisma <<'SCHEMA'
+
+model SystemInfo {
+  key   String @id
+  value String
+}
+SCHEMA
+npx prisma db push --accept-data-loss
 
 # 5. Build
 npm run build
