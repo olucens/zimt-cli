@@ -1,77 +1,130 @@
 # ZIMT CLI
-**The secret ingredient for production-ready NestJS applications.**
 
-## ⚠️ Status: Alpha / MVP.
-Recommended package manager: npm. Support for yarn and pnpm is experimental.
+The secret ingredient for production-ready NestJS applications.
 
-### Features:
-- Improved test coverage.
-- Fixed Prisma unique constraint error handling.
-- Updated Docker setup for better reliability.
+---
 
+## Why it exists
 
-## 1. Project Overview
-**Goal:** A CLI tool for developers to generate NestJS boilerplate with Auth, RBAC, and Prisma in seconds.
-**Target Audience:** NestJS developers, Startups, Agencies.
+Bootstrapping a NestJS project with Prisma, Docker, JWT auth, and proper RBAC involves 30+ files and hours of wiring. ZIMT handles all of it in seconds, then gets out of your way. Start blank, add what you need.
 
-## 2. Tech Stack
-* **Language:** TypeScript
-* **Runtime:** Node.js
-* **Core:** `commander` (Command handling)
-* **UI/Prompts:** `@clack/prompts`
-* **Templating:** `ejs` (For project scaffolding)
-* **AST Manipulation:** `ts-morph` (For safe injection into existing files, e.g., `app.module.ts`)
-* **File System:** `fs-extra`
+---
 
-## 3. Architecture Levels
+## Quick start
 
-### Level 1: The Smart Scaffolder (MVP)
-* **Focus:** `zimt new` & `zimt generate resource`.
-* **Logic:**
-    * Uses **Local Templates** (stored in `src/templates`).
-    * **EJS** replaces variables (`<%= name %>`, `<%= dbType %>`).
-    * **ts-morph** is used to register new modules in `app.module.ts` automatically.
-    * **Strict Versions:** `package.json` templates have fixed versions to avoid peer-dependency hell.
+```bash
+npm install -g zimt-cli
 
-### Level 2: The Code Surgeon (Future)
-* **Focus:** `zimt add auth` (into existing legacy projects).
-* **Logic:** Deep AST analysis to understand custom project structures and inject AuthGuard without breaking style.
+zimt init my-api
+cd my-api
+cp .env.example .env
+npm run prisma:migrate
+npm run start:dev
+```
 
-## 4. Command Reference
+Server running at `http://localhost:4000`. Health check: `GET /health`.
 
-| Command | Alias | Arguments | Description |
-| :--- | :--- | :--- | :--- |
-| `zimt new` | `n` | `<name>` | Scaffolds a complete "Golden Standard" project. |
-| `zimt generate`| `g` | `<schematic> <name>` | Generates a specific resource. |
-| `zimt info` | `i` | — | Displays environment info (OS, Node, CLI version). |
-| `zimt help` | `h` | `[command]` | Displays help. |
+---
 
-### Schematics for `generate`
-* `zimt g resource <name>` (or `res`)
-    * Generates: Module, Service, Controller, DTOs, Entities.
-    * Database: Creates Prisma Repository or In-Memory (based on choice).
-    * **Action:** Automatically updates `app.module.ts` imports via `ts-morph`.
+## Commands
 
-## 5. Interactive Prompts (`zimt new`)
-If arguments are not provided, launch interactive mode:
+| Command | What it does | Flags |
+|---------|-------------|-------|
+| `zimt init [name]` | Create a blank NestJS project | `--pm npm\|yarn\|pnpm\|bun` |
+| `zimt new [name]` | Alias for `zimt init` | `--pm` |
+| `zimt auth` | Add JWT auth, user module, RBAC to existing project | — |
+| `zimt create auth` | Alias for `zimt auth` | — |
+| `zimt generate <name>` | Generate CRUD resource from a name | `--parent <resource>` |
+| `zimt g <name>` | Alias for `zimt generate` | `--parent` |
+| `zimt p <name>` | Alias for `zimt generate` | `--parent` |
+| `zimt generate create "<SQL>"` | Generate resource from SQL CREATE TABLE | `--parent <resource>` |
+| `zimt p create "<SQL>"` | Alias for SQL generation | `--parent` |
+| `zimt r <entity>` | Add Redis cache-aside layer to a service | `--ttl <seconds>` |
+| `zimt cache <entity>` | Alias for `zimt r` | `--ttl` |
 
-1.  **Package Manager:** `npm` | `yarn` | `pnpm`
-2.  **Database:** `Prisma (PostgreSQL)` (Default) | `Mongoose` (Future)
-3.  **Auth Strategy:** `JWT` (Stateless) | `Session` (Redis) | `None`
-4.  **Extras (Multi-select):**
-    * [x] Docker Compose (DB setup)
-    * [x] CI/CD (GitHub Actions)
-    * [x] Swagger UI
-    * [x] Mailer Setup
-5.  **Git:** Initialize repo? `Yes` / `No`
+---
 
-_Please create .env file with names as in .env.example, and insure that you have active db or just run it in docker with *npm run docker:build*._
+## Generated project structure
 
-## 6. Implementation Plan (MVP)
+After `zimt init my-api`:
 
-1.  **Golden Standard:** Create a manual "perfect" reference project.
-2.  **Templatization:** Move reference code to `src/templates` and insert EJS tags.
-3.  **CLI Core:** Setup `commander` and `prompts`.
-4.  **Generator Logic:** Implement `fs-extra` copying and `ts-morph` injection.
-5.  **Polish:** Add ASCII art logo, spinners (`ora`), and colored logs (`chalk`).
-6.  **Release:** Publish to NPM (`zimt-cli` / `create-zimt-app`).
+```
+my-api/
+├── src/
+│   ├── app.module.ts       # Root module (PrismaModule imported)
+│   ├── app.controller.ts   # GET /health
+│   ├── app.service.ts
+│   ├── main.ts
+│   └── prisma/
+│       ├── prisma.module.ts
+│       └── prisma.service.ts
+├── prisma/
+│   └── schema.prisma
+├── Dockerfile
+├── docker-compose.yml      # PostgreSQL 16
+├── .env.example
+└── package.json
+```
+
+After `zimt auth`:
+
+```
+src/
+├── auth/               # JWT strategy, guards, decorators, login/signup/refresh
+├── user/               # User CRUD, RBAC-protected endpoints
+├── crypto/             # bcrypt helpers
+├── db/user/            # Repository interface + Prisma implementation
+└── logger/             # File logger + request logging middleware
+```
+
+After `zimt generate orders` or `zimt p create "CREATE TABLE orders (...)"`:
+
+```
+src/orders/
+├── orders.module.ts
+├── orders.controller.ts
+├── orders.service.ts
+├── orders.repository.ts
+├── orders.repository.interface.ts
+├── dto/
+│   ├── create-orders.dto.ts
+│   └── update-orders.dto.ts
+├── entities/
+│   └── orders.entity.ts
+├── orders.service.spec.ts
+└── orders.controller.spec.ts
+test/orders/
+└── orders.e2e-spec.ts
+```
+
+---
+
+## Package manager support
+
+Auto-detected from lockfile in the current directory:
+
+| Lockfile | Detected PM |
+|----------|-------------|
+| `bun.lockb` | bun |
+| `pnpm-lock.yaml` | pnpm |
+| `yarn.lock` | yarn |
+| `package-lock.json` | npm |
+
+Override with `--pm`: `zimt init my-app --pm pnpm`
+
+---
+
+## Requirements
+
+- Node.js ≥ 20.0.0
+- One of: npm, yarn, pnpm, or bun
+- Docker (optional, for local database)
+- PostgreSQL (via Docker or external)
+
+---
+
+## Contributing
+
+Issues and PRs welcome at [github.com/olucens/zimt-cli](https://github.com/olucens/zimt-cli).
+
+Set `NPM_TOKEN` in your repository secrets for automated npm publishing via CI/CD.
