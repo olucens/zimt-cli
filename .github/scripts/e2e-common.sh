@@ -2,7 +2,7 @@
 # Shared helpers for E2E scenario scripts
 set -euo pipefail
 
-CLI="node $(pwd)/dist/bin/zimt.js"
+CLI="$(pwd)/dist/bin/zimt.js"
 WORK_DIR=$(mktemp -d)
 
 cleanup() {
