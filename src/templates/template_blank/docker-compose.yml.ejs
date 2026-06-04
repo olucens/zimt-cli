@@ -43,7 +43,6 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
-      - ./logs:/usr/src/app/logs
     command: >
       sh -c "<% if (packageManager === 'yarn') { %>yarn<% } else if (packageManager === 'pnpm') { %>pnpm exec<% } else if (packageManager === 'bun') { %>bunx<% } else { %>npx<% } %> prisma migrate deploy && <% if (packageManager === 'yarn') { %>yarn start:dev<% } else if (packageManager === 'pnpm') { %>pnpm run start:dev<% } else if (packageManager === 'bun') { %>bun run start:dev<% } else { %>npm run start:dev<% } %>"
 

@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
-import { comparePassword, hashPassword } from 'src/crypto/hashPassword';
-import { IUserRepository } from 'src/db/user/user.repository.interface';
+import { comparePassword, hashPassword } from '../crypto/hashPassword';
+import { IUserRepository } from '../db/user/user.repository.interface';
 import {
   CreateUserDto,
   UserResponse,
@@ -16,7 +16,9 @@ import {
 
 @Injectable()
 export class UserService {
-  constructor(@Inject('USER_REPOSITORY') private repository: IUserRepository) {}
+  constructor(
+    @Inject('USER_REPOSITORY') private repository: IUserRepository,
+  ) {}
 
   async getAll() {
     const users: User[] = await this.repository.getAll();
@@ -53,8 +55,10 @@ export class UserService {
       throw new ForbiddenException('Old password is wrong');
     }
     const newPassword: string = await hashPassword(data.newPassword);
-    data = { ...data, newPassword: newPassword };
-    const uUser: User | undefined = await this.repository.update(id, data);
+    const uUser: User | undefined = await this.repository.update(id, {
+      ...data,
+      newPassword,
+    });
     if (uUser === undefined) {
       throw new NotFoundException('User not found during update');
     }
@@ -66,8 +70,8 @@ export class UserService {
     if (user === undefined) {
       throw new NotFoundException('User not found');
     }
-    const respons = await this.repository.delete(id);
-    if (!respons) {
+    const deleted = await this.repository.delete(id);
+    if (!deleted) {
       throw new NotFoundException('User not found');
     }
   }

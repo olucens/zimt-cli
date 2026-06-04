@@ -2,15 +2,14 @@ import {
   ForbiddenException,
   Injectable,
   UnauthorizedException,
-  ConflictException
+  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { comparePassword, hashPassword } from 'src/crypto/hashPassword';
-import { CreateUserDto } from 'src/user/dto/user.dto';
-import { UserService } from 'src/user/user.service';
+import { comparePassword, hashPassword } from '../crypto/hashPassword';
+import { CreateUserDto } from '../user/dto/user.dto';
+import { UserService } from '../user/user.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
-import { User } from 'src/user/dto/user.dto';
 
 @Injectable()
 export class AuthService {
@@ -19,15 +18,15 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signup(createUserDto: CreateUserDto): Promise<User> {
+  async signup(createUserDto: CreateUserDto) {
     try {
       const hashedPassword = await hashPassword(createUserDto.password);
       return await this.userService.create({
         ...createUserDto,
         password: hashedPassword,
       });
-    } catch (error) {
-      if (error.code === 'P2002') {
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
         throw new ConflictException('Login already exists');
       }
       throw error;
@@ -49,16 +48,23 @@ export class AuthService {
     roles: string[] = ['user'],
   ) {
     const payload = { userId, login, roles };
+    const secret = process.env.JWT_SECRET_KEY;
+    const refreshSecret = process.env.JWT_SECRET_REFRESH_KEY;
+
+    if (!secret || !refreshSecret) {
+      throw new Error('JWT_SECRET_KEY and JWT_SECRET_REFRESH_KEY must be set');
+    }
 
     const accessToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET_KEY!,
-      expiresIn: (process.env.TOKEN_EXPIRE_TIME || '1h') as any,
+      secret,
+      expiresIn: (process.env.TOKEN_EXPIRE_TIME || '1h') as string,
     });
 
     const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET_REFRESH_KEY!,
-      expiresIn: (process.env.TOKEN_REFRESH_EXPIRE_TIME || '24h') as any,
+      secret: refreshSecret,
+      expiresIn: (process.env.TOKEN_REFRESH_EXPIRE_TIME || '24h') as string,
     });
+
     return { accessToken, refreshToken };
   }
 
@@ -66,18 +72,22 @@ export class AuthService {
     if (!dto.refreshToken) {
       throw new UnauthorizedException('Refresh token is missing');
     }
+    const refreshSecret = process.env.JWT_SECRET_REFRESH_KEY;
+    if (!refreshSecret) {
+      throw new Error('JWT_SECRET_REFRESH_KEY must be set');
+    }
     try {
       const payload = await this.jwtService.verifyAsync(dto.refreshToken, {
-        secret: process.env.JWT_SECRET_REFRESH_KEY,
+        secret: refreshSecret,
       });
       const user = await this.userService.getByLogin(payload.login);
       if (!user) {
         throw new ForbiddenException('User not found');
       }
-
       const roles = user.roles || ['user'];
       return this.generateTokens(user.id, user.login, roles);
-    } catch (e) {
+    } catch (e: any) {
+      if (e instanceof ForbiddenException) throw e;
       throw new ForbiddenException('Invalid refresh token');
     }
   }

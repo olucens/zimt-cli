@@ -1,0 +1,36 @@
+# <%= projectName %>
+
+<%= description || 'A NestJS application generated with zimt-cli.' %>
+
+## Quick Start
+
+```bash
+cp .env.example .env
+<% if (packageManager === 'yarn') { %>yarn install<% } else if (packageManager === 'pnpm') { %>pnpm install<% } else if (packageManager === 'bun') { %>bun install<% } else { %>npm install<% } %>
+<% if (packageManager === 'yarn') { %>yarn prisma:migrate<% } else if (packageManager === 'pnpm') { %>pnpm run prisma:migrate<% } else if (packageManager === 'bun') { %>bun run prisma:migrate<% } else { %>npm run prisma:migrate<% } %>
+<% if (packageManager === 'yarn') { %>yarn start:dev<% } else if (packageManager === 'pnpm') { %>pnpm run start:dev<% } else if (packageManager === 'bun') { %>bun run start:dev<% } else { %>npm run start:dev<% } %>
+```
+
+Health check: `GET /health`
+
+## Add Auth
+
+```bash
+zimt auth
+```
+
+## Generate Endpoints
+
+```bash
+# From a name
+zimt generate products
+
+# From SQL
+zimt generate create "CREATE TABLE orders (id SERIAL PRIMARY KEY, total DECIMAL NOT NULL)"
+```
+
+## Docker
+
+```bash
+<% if (packageManager === 'yarn') { %>yarn docker:build<% } else if (packageManager === 'pnpm') { %>pnpm run docker:build<% } else if (packageManager === 'bun') { %>bun run docker:build<% } else { %>npm run docker:build<% } %>
+```
