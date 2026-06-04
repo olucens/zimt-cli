@@ -356,6 +356,7 @@ async function generateEntity(entitiesDir: string, name: string, Name: string): 
 }
 
 async function generateRepository(dir: string, name: string, Name: string): Promise<void> {
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const interfaceContent = `import { Create${Name}Dto } from './dto/create-${name}.dto';
 import { Update${Name}Dto } from './dto/update-${name}.dto';
 import { ${Name} } from './entities/${name}.entity';
@@ -382,19 +383,19 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${name}.findMany(
+    const items = await this.prisma.${prismaAccessor}.findMany(
       parentId ? { where: { parentId } } : undefined,
     );
     return items.map((item) => this.mapToDomain(item));
   }
 
   async findById(id: string): Promise<${Name} | undefined> {
-    const item = await this.prisma.${name}.findUnique({ where: { id } });
+    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { id } });
     return item ? this.mapToDomain(item) : undefined;
   }
 
   async create(data: Create${Name}Dto, parentId?: string): Promise<${Name}> {
-    const item = await this.prisma.${name}.create({
+    const item = await this.prisma.${prismaAccessor}.create({
       data: { ...data, ...(parentId ? { parentId } : {}) },
     });
     return this.mapToDomain(item);
@@ -402,7 +403,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async update(id: string, data: Update${Name}Dto): Promise<${Name} | undefined> {
     try {
-      const item = await this.prisma.${name}.update({ where: { id }, data });
+      const item = await this.prisma.${prismaAccessor}.update({ where: { id }, data });
       return this.mapToDomain(item);
     } catch {
       return undefined;
@@ -411,7 +412,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await this.prisma.${name}.delete({ where: { id } });
+      await this.prisma.${prismaAccessor}.delete({ where: { id } });
       return true;
     } catch {
       return false;
@@ -584,6 +585,7 @@ async function generateRepositoryFromSql(
   Name: string,
   parsed: ParsedSqlTable,
 ): Promise<void> {
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pkCol = parsed.columns.find((c) => c.isPrimary);
   const pkField = pkCol ? snakeToCamel(pkCol.name) : 'id';
 
@@ -619,19 +621,19 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${name}.findMany(
+    const items = await this.prisma.${prismaAccessor}.findMany(
       parentId ? { where: { parentId } } : undefined,
     );
     return items.map((item) => this.mapToDomain(item));
   }
 
   async findById(id: string | number): Promise<${Name} | undefined> {
-    const item = await this.prisma.${name}.findUnique({ where: { ${pkField}: id as any } });
+    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { ${pkField}: id as any } });
     return item ? this.mapToDomain(item) : undefined;
   }
 
   async create(data: Create${Name}Dto, parentId?: string): Promise<${Name}> {
-    const item = await this.prisma.${name}.create({
+    const item = await this.prisma.${prismaAccessor}.create({
       data: { ...data, ...(parentId ? { parentId } : {}) } as any,
     });
     return this.mapToDomain(item);
@@ -639,7 +641,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async update(id: string | number, data: Update${Name}Dto): Promise<${Name} | undefined> {
     try {
-      const item = await this.prisma.${name}.update({
+      const item = await this.prisma.${prismaAccessor}.update({
         where: { ${pkField}: id as any },
         data: data as any,
       });
@@ -651,7 +653,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async delete(id: string | number): Promise<boolean> {
     try {
-      await this.prisma.${name}.delete({ where: { ${pkField}: id as any } });
+      await this.prisma.${prismaAccessor}.delete({ where: { ${pkField}: id as any } });
       return true;
     } catch {
       return false;
@@ -793,6 +795,7 @@ async function generateE2ETests(targetDir: string, name: string, Name: string): 
   const testDir = path.join(targetDir, 'test', name);
   await fs.ensureDir(testDir);
 
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pluralRoute = toPluralRoute(name);
 
   const e2eSpec = `import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -818,13 +821,13 @@ describe('${Name} (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.${name}.deleteMany({});
+    await prisma.${prismaAccessor}.deleteMany({});
     await prisma.$disconnect();
     await app.close();
   });
 
   beforeEach(async () => {
-    await prisma.${name}.deleteMany({});
+    await prisma.${prismaAccessor}.deleteMany({});
   });
 
   it('POST /${pluralRoute} — creates item', async () => {

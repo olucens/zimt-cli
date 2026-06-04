@@ -32,7 +32,7 @@ EOF
 npm install --prefer-offline
 
 # 4. Prisma
-npx prisma db push --accept-data-loss
+npx prisma db push --skip-generate --accept-data-loss
 
 # 5. Build
 npm run build
