@@ -33,7 +33,7 @@ EOF
 echo "yes" | node "$CLI" auth || node "$CLI" auth
 
 npm install --prefer-offline
-npx prisma db push --skip-generate --accept-data-loss
+npx prisma db push --accept-data-loss
 npm run build
 
 PORT=$PORT node dist/main &

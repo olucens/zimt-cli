@@ -47,7 +47,7 @@ model Category {
 }
 SCHEMA
 
-npx prisma db push --skip-generate --accept-data-loss
+npx prisma db push --accept-data-loss
 npm run build
 
 PORT=$PORT node dist/main &

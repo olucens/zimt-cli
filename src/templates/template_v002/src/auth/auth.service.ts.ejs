@@ -55,14 +55,17 @@ export class AuthService {
       throw new Error('JWT_SECRET_KEY and JWT_SECRET_REFRESH_KEY must be set');
     }
 
+    const accessExpiry: string = process.env.TOKEN_EXPIRE_TIME || '1h';
+    const refreshExpiry: string = process.env.TOKEN_REFRESH_EXPIRE_TIME || '24h';
+
     const accessToken = await this.jwtService.signAsync(payload, {
       secret,
-      expiresIn: (process.env.TOKEN_EXPIRE_TIME || '1h') as string,
+      expiresIn: accessExpiry,
     });
 
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
-      expiresIn: (process.env.TOKEN_REFRESH_EXPIRE_TIME || '24h') as string,
+      expiresIn: refreshExpiry,
     });
 
     return { accessToken, refreshToken };

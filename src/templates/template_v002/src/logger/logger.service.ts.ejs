@@ -6,7 +6,7 @@ import * as path from 'path';
 export class LoggerService extends ConsoleLogger {
   private readonly logDir = process.env.LOG_DIR || 'logs';
   private readonly maxFileSize =
-    (parseInt(process.env.LOG_FILE_SIZE_KB) || 10) * 1024;
+    (parseInt(process.env.LOG_FILE_SIZE_KB || '10') || 10) * 1024;
   private readonly logLevels: LogLevel[] = [
     'error',
     'warn',
@@ -18,7 +18,7 @@ export class LoggerService extends ConsoleLogger {
 
   constructor() {
     super();
-    this.currentLogLevel = parseInt(process.env.LOG_LEVEL) || 2;
+    this.currentLogLevel = parseInt(process.env.LOG_LEVEL || '2') || 2;
     this.setLogLevels(this.logLevels.slice(0, this.currentLogLevel + 1));
 
     if (!fs.existsSync(this.logDir)) {
