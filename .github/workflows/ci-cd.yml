@@ -1,0 +1,159 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '22'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 1 — Build & lint the CLI itself
+# ─────────────────────────────────────────────────────────────────────────────
+jobs:
+  build-lint:
+    name: Build & lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install CLI deps
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 2 — CLI unit / integration tests (5 scenarios)
+# ─────────────────────────────────────────────────────────────────────────────
+  test-cli:
+    name: CLI tests
+    runs-on: ubuntu-latest
+    needs: build-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install CLI deps
+        run: npm ci
+
+      - name: Run all scenarios
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 3 — E2E tests per scenario (generate project → start server → HTTP tests)
+# ─────────────────────────────────────────────────────────────────────────────
+  e2e-scenarios:
+    name: E2E — ${{ matrix.scenario }}
+    runs-on: ubuntu-latest
+    needs: build-lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - blank
+          - auth-only
+          - api-no-auth
+          - api-full
+          - nested
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: zimt_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install CLI deps
+        run: npm ci
+
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Run E2E scenario — ${{ matrix.scenario }}
+        run: |
+          chmod +x .github/scripts/e2e-${{ matrix.scenario }}.sh
+          bash .github/scripts/e2e-${{ matrix.scenario }}.sh
+        env:
+          DATABASE_URL: postgresql://admin:testpass@localhost:5432/zimt_test_db?schema=public
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: zimt_test_db
+          JWT_SECRET_KEY: ci_test_secret_key_not_for_production
+          JWT_SECRET_REFRESH_KEY: ci_test_refresh_secret_not_for_production
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOB 4 — Publish to npm (only on push to main, all jobs pass)
+# ─────────────────────────────────────────────────────────────────────────────
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [test-cli, e2e-scenarios]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

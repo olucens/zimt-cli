@@ -987,3 +987,77 @@ function buildValidatorImports(cols: SqlColumn[]): string {
   }
   return `import { ${[...needed].join(', ')} } from 'class-validator';`;
 }
+
+// ─── PUBLIC CORE API (for programmatic use and tests) ────────────────────────
+
+export interface GenerateOptions {
+  parent?: string;
+}
+
+/** Generate a resource by name directly (no CLI interaction). */
+export async function generateResourceByName(
+  targetDir: string,
+  name: string,
+  options: GenerateOptions = {},
+): Promise<void> {
+  const resourceName = name.toLowerCase();
+  const ResourceName = capitalize(resourceName);
+  const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
+
+  const resourceDir = path.join(targetDir, 'src', resourceName);
+  const dtoDir = path.join(resourceDir, 'dto');
+  const entitiesDir = path.join(resourceDir, 'entities');
+
+  await fs.ensureDir(dtoDir);
+  await fs.ensureDir(entitiesDir);
+  await generateModule(resourceDir, resourceName, ResourceName);
+  await generateController(resourceDir, resourceName, ResourceName, options.parent);
+  await generateService(resourceDir, resourceName, ResourceName);
+  await generateDTO(dtoDir, resourceName, ResourceName);
+  await generateEntity(entitiesDir, resourceName, ResourceName);
+  await generateRepository(resourceDir, resourceName, ResourceName);
+  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateE2ETests(targetDir, resourceName, ResourceName);
+
+  if (fs.existsSync(appModulePath)) {
+    await updateAppModule(appModulePath, resourceName, ResourceName);
+  }
+}
+
+/** Generate a resource from a SQL CREATE TABLE statement directly. */
+export async function generateResourceFromSql(
+  targetDir: string,
+  sql: string,
+  options: GenerateOptions = {},
+): Promise<{ prismaModel: string; resourceName: string; entityName: string }> {
+  const parsed = parseSqlCreateTable(sql);
+  const resourceName = tableNameToResourceName(parsed.tableName);
+  const ResourceName = tableNameToEntityName(parsed.tableName);
+  const routeName = tableNameToRoute(parsed.tableName);
+  const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
+
+  const resourceDir = path.join(targetDir, 'src', resourceName);
+  const dtoDir = path.join(resourceDir, 'dto');
+  const entitiesDir = path.join(resourceDir, 'entities');
+
+  await fs.ensureDir(dtoDir);
+  await fs.ensureDir(entitiesDir);
+  await generateModuleFromSql(resourceDir, resourceName, ResourceName);
+  await generateControllerFromSql(resourceDir, resourceName, ResourceName, routeName, parsed, options.parent);
+  await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
+  await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
+  await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
+  await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed);
+  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateE2ETests(targetDir, resourceName, ResourceName);
+
+  if (fs.existsSync(appModulePath)) {
+    await updateAppModule(appModulePath, resourceName, ResourceName);
+  }
+
+  return {
+    prismaModel: buildPrismaModel(ResourceName, parsed),
+    resourceName,
+    entityName: ResourceName,
+  };
+}
