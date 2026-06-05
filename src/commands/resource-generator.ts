@@ -8,7 +8,6 @@ import {
   parseSqlCreateTable,
   sqlTypeToPrisma,
   snakeToCamel,
-  snakeToPascal,
   tableNameToEntityName,
   tableNameToResourceName,
   tableNameToRoute,
@@ -37,8 +36,10 @@ const createSubCommand = new Command('create')
   .description('Generate a resource from a SQL CREATE TABLE statement')
   .argument('<sql>', 'SQL CREATE TABLE statement')
   .option('--parent <parent>', 'Parent resource for nested routing (e.g. users)')
-  .action(async (sql: string, options: { parent?: string }) => {
-    await runGenerateFromSql(sql, options.parent);
+  .action(async (sql: string, options: { parent?: string }, command: Command) => {
+    // Commander.js v11 hoists --parent to the parent command's opts when both define it
+    const parent = options.parent ?? (command.parent as any)?.opts()?.parent;
+    await runGenerateFromSql(sql, parent);
   });
 
 generateCommand.addCommand(createSubCommand);
@@ -93,7 +94,7 @@ async function runGenerateFromName(name: string, parent?: string): Promise<void>
     s.stop('✓ app.module.ts updated');
 
     prompts.outro(chalk.green(`\n✓ Resource "${ResourceName}" created successfully!\n`));
-    console.log(chalk.yellow('⚠️  Don\'t forget to:'));
+    console.log(chalk.yellow("⚠️  Don't forget to:"));
     console.log(chalk.yellow(`   1. Add the ${ResourceName} model to prisma/schema.prisma`));
     console.log(chalk.yellow('   2. Run: npx prisma generate\n'));
   } catch (error: any) {
@@ -142,11 +143,18 @@ async function runGenerateFromSql(sql: string, parent?: string): Promise<void> {
 
     s.start('Generating files...');
     await generateModuleFromSql(resourceDir, resourceName, ResourceName);
-    await generateControllerFromSql(resourceDir, resourceName, ResourceName, routeName, parsed, parent);
+    await generateControllerFromSql(
+      resourceDir,
+      resourceName,
+      ResourceName,
+      routeName,
+      parsed,
+      parent,
+    );
     await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
     await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
     await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
-    await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed);
+    await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, parent);
     await generateUnitTests(resourceDir, resourceName, ResourceName);
     await generateE2ETests(targetDir, resourceName, ResourceName);
     s.stop('✓ Files generated');
@@ -211,10 +219,6 @@ async function generateController(
   const routePath = parent
     ? `${toPluralRoute(parent.toLowerCase())}/:${parent.toLowerCase()}Id/${toPluralRoute(name)}`
     : toPluralRoute(name);
-
-  const parentParam = parent
-    ? `\n  @Param('${parent.toLowerCase()}Id', ParseUUIDPipe) ${parent.toLowerCase()}Id: string,\n  `
-    : '';
 
   const content = `import {
   Controller,
@@ -356,6 +360,7 @@ async function generateEntity(entitiesDir: string, name: string, Name: string): 
 }
 
 async function generateRepository(dir: string, name: string, Name: string): Promise<void> {
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const interfaceContent = `import { Create${Name}Dto } from './dto/create-${name}.dto';
 import { Update${Name}Dto } from './dto/update-${name}.dto';
 import { ${Name} } from './entities/${name}.entity';
@@ -382,19 +387,19 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${name}.findMany(
-      parentId ? { where: { parentId } } : undefined,
+    const items = await this.prisma.${prismaAccessor}.findMany(
+      (parentId ? { where: { parentId } } : {}) as any,
     );
     return items.map((item) => this.mapToDomain(item));
   }
 
   async findById(id: string): Promise<${Name} | undefined> {
-    const item = await this.prisma.${name}.findUnique({ where: { id } });
+    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { id } });
     return item ? this.mapToDomain(item) : undefined;
   }
 
   async create(data: Create${Name}Dto, parentId?: string): Promise<${Name}> {
-    const item = await this.prisma.${name}.create({
+    const item = await this.prisma.${prismaAccessor}.create({
       data: { ...data, ...(parentId ? { parentId } : {}) },
     });
     return this.mapToDomain(item);
@@ -402,7 +407,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async update(id: string, data: Update${Name}Dto): Promise<${Name} | undefined> {
     try {
-      const item = await this.prisma.${name}.update({ where: { id }, data });
+      const item = await this.prisma.${prismaAccessor}.update({ where: { id }, data });
       return this.mapToDomain(item);
     } catch {
       return undefined;
@@ -411,7 +416,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async delete(id: string): Promise<boolean> {
     try {
-      await this.prisma.${name}.delete({ where: { id } });
+      await this.prisma.${prismaAccessor}.delete({ where: { id } });
       return true;
     } catch {
       return false;
@@ -516,7 +521,7 @@ async function generateServiceFromSql(
   dir: string,
   name: string,
   Name: string,
-  parsed: ParsedSqlTable,
+  _parsed: ParsedSqlTable,
 ): Promise<void> {
   return generateService(dir, name, Name);
 }
@@ -583,9 +588,39 @@ async function generateRepositoryFromSql(
   name: string,
   Name: string,
   parsed: ParsedSqlTable,
+  parent?: string,
 ): Promise<void> {
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pkCol = parsed.columns.find((c) => c.isPrimary);
   const pkField = pkCol ? snakeToCamel(pkCol.name) : 'id';
+  const numericSqlTypes = new Set([
+    'serial',
+    'bigserial',
+    'smallserial',
+    'int',
+    'integer',
+    'bigint',
+    'smallint',
+  ]);
+  const pkIsNumeric = pkCol ? numericSqlTypes.has(pkCol.sqlType) : false;
+  const pkCast = pkIsNumeric ? 'Number(id)' : 'id as any';
+
+  // Detect the actual FK column name for the parent relation (e.g. user_id -> userId)
+  const parentFkField = parent
+    ? (() => {
+        const fkColName = `${parent.toLowerCase()}_id`;
+        const fkCol = parsed.columns.find((c) => c.name.toLowerCase() === fkColName);
+        return fkCol ? snakeToCamel(fkCol.name) : null;
+      })()
+    : null;
+
+  const findAllFilter = parentFkField
+    ? `(parentId ? { where: { ${parentFkField}: parentId } } : {})`
+    : `(parentId ? { where: { parentId } } : {})`;
+
+  const createParentSpread = parentFkField
+    ? `...(parentId ? { ${parentFkField}: parentId } : {})`
+    : `...(parentId ? { parentId } : {})`;
 
   const mapFields = parsed.columns
     .map((col) => {
@@ -619,28 +654,28 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   constructor(private prisma: PrismaService) {}
 
   async findAll(parentId?: string): Promise<${Name}[]> {
-    const items = await this.prisma.${name}.findMany(
-      parentId ? { where: { parentId } } : undefined,
+    const items = await this.prisma.${prismaAccessor}.findMany(
+      ${findAllFilter} as any,
     );
     return items.map((item) => this.mapToDomain(item));
   }
 
   async findById(id: string | number): Promise<${Name} | undefined> {
-    const item = await this.prisma.${name}.findUnique({ where: { ${pkField}: id as any } });
+    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { ${pkField}: ${pkCast} } });
     return item ? this.mapToDomain(item) : undefined;
   }
 
   async create(data: Create${Name}Dto, parentId?: string): Promise<${Name}> {
-    const item = await this.prisma.${name}.create({
-      data: { ...data, ...(parentId ? { parentId } : {}) } as any,
+    const item = await this.prisma.${prismaAccessor}.create({
+      data: { ...data, ${createParentSpread} } as any,
     });
     return this.mapToDomain(item);
   }
 
   async update(id: string | number, data: Update${Name}Dto): Promise<${Name} | undefined> {
     try {
-      const item = await this.prisma.${name}.update({
-        where: { ${pkField}: id as any },
+      const item = await this.prisma.${prismaAccessor}.update({
+        where: { ${pkField}: ${pkCast} },
         data: data as any,
       });
       return this.mapToDomain(item);
@@ -651,7 +686,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async delete(id: string | number): Promise<boolean> {
     try {
-      await this.prisma.${name}.delete({ where: { ${pkField}: id as any } });
+      await this.prisma.${prismaAccessor}.delete({ where: { ${pkField}: ${pkCast} } });
       return true;
     } catch {
       return false;
@@ -793,6 +828,7 @@ async function generateE2ETests(targetDir: string, name: string, Name: string): 
   const testDir = path.join(targetDir, 'test', name);
   await fs.ensureDir(testDir);
 
+  const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pluralRoute = toPluralRoute(name);
 
   const e2eSpec = `import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -818,13 +854,13 @@ describe('${Name} (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.${name}.deleteMany({});
+    await prisma.${prismaAccessor}.deleteMany({});
     await prisma.$disconnect();
     await app.close();
   });
 
   beforeEach(async () => {
-    await prisma.${name}.deleteMany({});
+    await prisma.${prismaAccessor}.deleteMany({});
   });
 
   it('POST /${pluralRoute} — creates item', async () => {
@@ -890,10 +926,12 @@ async function updateAppModule(
   if (!moduleDecorator) throw new Error('@Module decorator not found');
 
   const decoratorArgs = moduleDecorator.getArguments();
-  if (!decoratorArgs || decoratorArgs.length === 0) throw new Error('@Module decorator has no arguments');
+  if (!decoratorArgs || decoratorArgs.length === 0)
+    throw new Error('@Module decorator has no arguments');
 
   const firstArg = decoratorArgs[0];
-  if (firstArg.getKind() !== SyntaxKind.ObjectLiteralExpression) throw new Error('Invalid @Module decorator structure');
+  if (firstArg.getKind() !== SyntaxKind.ObjectLiteralExpression)
+    throw new Error('Invalid @Module decorator structure');
 
   const objExpr = firstArg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
   const importsProp = objExpr.getProperty('imports');
@@ -986,4 +1024,85 @@ function buildValidatorImports(cols: SqlColumn[]): string {
     if (tsType === 'Date') needed.add('IsDateString');
   }
   return `import { ${[...needed].join(', ')} } from 'class-validator';`;
+}
+
+// ─── PUBLIC CORE API (for programmatic use and tests) ────────────────────────
+
+export interface GenerateOptions {
+  parent?: string;
+}
+
+/** Generate a resource by name directly (no CLI interaction). */
+export async function generateResourceByName(
+  targetDir: string,
+  name: string,
+  options: GenerateOptions = {},
+): Promise<void> {
+  const resourceName = name.toLowerCase();
+  const ResourceName = capitalize(resourceName);
+  const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
+
+  const resourceDir = path.join(targetDir, 'src', resourceName);
+  const dtoDir = path.join(resourceDir, 'dto');
+  const entitiesDir = path.join(resourceDir, 'entities');
+
+  await fs.ensureDir(dtoDir);
+  await fs.ensureDir(entitiesDir);
+  await generateModule(resourceDir, resourceName, ResourceName);
+  await generateController(resourceDir, resourceName, ResourceName, options.parent);
+  await generateService(resourceDir, resourceName, ResourceName);
+  await generateDTO(dtoDir, resourceName, ResourceName);
+  await generateEntity(entitiesDir, resourceName, ResourceName);
+  await generateRepository(resourceDir, resourceName, ResourceName);
+  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateE2ETests(targetDir, resourceName, ResourceName);
+
+  if (fs.existsSync(appModulePath)) {
+    await updateAppModule(appModulePath, resourceName, ResourceName);
+  }
+}
+
+/** Generate a resource from a SQL CREATE TABLE statement directly. */
+export async function generateResourceFromSql(
+  targetDir: string,
+  sql: string,
+  options: GenerateOptions = {},
+): Promise<{ prismaModel: string; resourceName: string; entityName: string }> {
+  const parsed = parseSqlCreateTable(sql);
+  const resourceName = tableNameToResourceName(parsed.tableName);
+  const ResourceName = tableNameToEntityName(parsed.tableName);
+  const routeName = tableNameToRoute(parsed.tableName);
+  const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
+
+  const resourceDir = path.join(targetDir, 'src', resourceName);
+  const dtoDir = path.join(resourceDir, 'dto');
+  const entitiesDir = path.join(resourceDir, 'entities');
+
+  await fs.ensureDir(dtoDir);
+  await fs.ensureDir(entitiesDir);
+  await generateModuleFromSql(resourceDir, resourceName, ResourceName);
+  await generateControllerFromSql(
+    resourceDir,
+    resourceName,
+    ResourceName,
+    routeName,
+    parsed,
+    options.parent,
+  );
+  await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
+  await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
+  await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
+  await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, options.parent);
+  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateE2ETests(targetDir, resourceName, ResourceName);
+
+  if (fs.existsSync(appModulePath)) {
+    await updateAppModule(appModulePath, resourceName, ResourceName);
+  }
+
+  return {
+    prismaModel: buildPrismaModel(ResourceName, parsed),
+    resourceName,
+    entityName: ResourceName,
+  };
 }

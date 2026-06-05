@@ -8,7 +8,6 @@ import { PackageManager, ProjectConfig } from '../types';
 
 const BLANK_TEMPLATE_NAME = 'template_blank';
 
-// @ts-ignore
 const dirname: string =
   typeof __dirname !== 'undefined'
     ? __dirname
@@ -38,26 +37,31 @@ export function detectPackageManager(dir: string): PackageManager | null {
 
 export function getInstallCommand(pm: PackageManager): string {
   switch (pm) {
-    case 'yarn': return 'yarn install';
-    case 'pnpm': return 'pnpm install';
-    case 'bun': return 'bun install';
-    default: return 'npm install';
+    case 'yarn':
+      return 'yarn install';
+    case 'pnpm':
+      return 'pnpm install';
+    case 'bun':
+      return 'bun install';
+    default:
+      return 'npm install';
   }
 }
 
 export function getRunCommand(pm: PackageManager, script: string): string {
   switch (pm) {
-    case 'yarn': return `yarn ${script}`;
-    case 'pnpm': return `pnpm run ${script}`;
-    case 'bun': return `bun run ${script}`;
-    default: return `npm run ${script}`;
+    case 'yarn':
+      return `yarn ${script}`;
+    case 'pnpm':
+      return `pnpm run ${script}`;
+    case 'bun':
+      return `bun run ${script}`;
+    default:
+      return `npm run ${script}`;
   }
 }
 
-export async function createProject(
-  config: ProjectConfig,
-  targetDir: string,
-): Promise<void> {
+export async function createProject(config: ProjectConfig, targetDir: string): Promise<void> {
   const templateDir = getTemplateDir(BLANK_TEMPLATE_NAME);
 
   if (!fs.existsSync(templateDir)) {
@@ -105,17 +109,12 @@ export async function createProject(
     });
     s.stop(`✓ Dependencies installed`);
   } catch (error: any) {
-    s.stop(
-      `⚠ Installation failed — run manually: ${getInstallCommand(config.packageManager)}`,
-    );
+    s.stop(`⚠ Installation failed — run manually: ${getInstallCommand(config.packageManager)}`);
     console.warn(chalk.yellow(`Warning: ${error.message}`));
   }
 }
 
-async function configurePackageManager(
-  targetDir: string,
-  pm: PackageManager,
-): Promise<void> {
+async function configurePackageManager(targetDir: string, pm: PackageManager): Promise<void> {
   const packageJsonPath = path.join(targetDir, 'package.json');
   if (!fs.existsSync(packageJsonPath)) return;
 
@@ -154,6 +153,19 @@ export async function promptProjectConfig(
 ): Promise<ProjectConfig> {
   prompts.intro(chalk.cyan('ZIMT CLI — Create a production-ready NestJS project'));
 
+  // Non-interactive mode: all required fields supplied via CLI args — skip all prompts.
+  if (projectName && pmFlag) {
+    return {
+      name: projectName,
+      packageManager: pmFlag,
+      database: 'prisma-postgresql',
+      authStrategy: 'jwt',
+      description: 'A production-ready NestJS application',
+      author: '',
+      initializeGit: false,
+    };
+  }
+
   const detectedPm = detectPackageManager(process.cwd());
 
   const config = await prompts.group(
@@ -176,9 +188,7 @@ export async function promptProjectConfig(
         ? async () => pmFlag
         : detectedPm
           ? async () => {
-              console.log(
-                chalk.dim(`  Detected ${detectedPm} from lockfile.`),
-              );
+              console.log(chalk.dim(`  Detected ${detectedPm} from lockfile.`));
               return detectedPm;
             }
           : async () =>

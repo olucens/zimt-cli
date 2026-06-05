@@ -3,12 +3,7 @@ import { Command } from 'commander';
 import { resourceGeneratorCommand } from '../src/commands/resource-generator';
 import { authCommand } from '../src/commands/auth';
 import { cacheCommand } from '../src/commands/cache';
-import {
-  createProject,
-  promptProjectConfig,
-  detectPackageManager,
-  getRunCommand,
-} from '../src/commands/init';
+import { createProject, promptProjectConfig, getRunCommand } from '../src/commands/init';
 import chalk from 'chalk';
 import * as prompts from '@clack/prompts';
 import * as path from 'path';
@@ -70,7 +65,11 @@ const initAction = async (name: string | undefined, options: { pm?: string }) =>
     prompts.outro(chalk.green(`\n✓ Project "${projectName}" created successfully!\n`));
     console.log(chalk.cyan(`  cd ${projectName}`));
     console.log(chalk.cyan(`  cp .env.example .env`));
-    console.log(chalk.cyan(`  ${pm === 'npm' ? 'npm run prisma:migrate' : pm === 'yarn' ? 'yarn prisma:migrate' : pm === 'bun' ? 'bun run prisma:migrate' : 'pnpm run prisma:migrate'}`));
+    console.log(
+      chalk.cyan(
+        `  ${pm === 'npm' ? 'npm run prisma:migrate' : pm === 'yarn' ? 'yarn prisma:migrate' : pm === 'bun' ? 'bun run prisma:migrate' : 'pnpm run prisma:migrate'}`,
+      ),
+    );
     console.log(chalk.cyan(`  ${getRunCommand(pm, 'start:dev')}\n`));
     console.log(chalk.dim('  To add auth: ') + chalk.cyan('zimt auth'));
     console.log(chalk.dim('  To generate endpoints: ') + chalk.cyan('zimt generate <name>') + '\n');
@@ -95,13 +94,14 @@ program
 program.addCommand(authCommand);
 
 // Also support: zimt create auth
-const createCmd = new Command('create')
-  .description('Scaffold features into an existing project');
+const createCmd = new Command('create').description('Scaffold features into an existing project');
 
 createCmd
   .command('auth')
   .description('Add JWT auth to an existing zimt project')
-  .action(async () => { await authCommand.parseAsync(['auth'], { from: 'user' }); });
+  .action(async () => {
+    await authCommand.parseAsync(['auth'], { from: 'user' });
+  });
 
 program.addCommand(createCmd);
 

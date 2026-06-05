@@ -70,10 +70,7 @@ async function processEjsTemplate(
   await fs.writeFile(finalPath, rendered, 'utf-8');
 }
 
-export function renderTemplate(
-  content: string,
-  context: TemplateContext,
-): string {
+export function renderTemplate(content: string, context: TemplateContext): string {
   return ejs.render(content, {
     projectName: context.projectName,
     name: context.projectName,

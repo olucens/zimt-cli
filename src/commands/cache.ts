@@ -3,7 +3,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import chalk from 'chalk';
 import * as prompts from '@clack/prompts';
-import { parseSqlCreateTable, tableNameToEntityName, tableNameToResourceName } from '../utils/sql-parser';
+import { tableNameToEntityName, tableNameToResourceName } from '../utils/sql-parser';
 
 export const cacheCommand = new Command('r')
   .alias('cache')
@@ -44,7 +44,7 @@ export const cacheCommand = new Command('r')
       if (!fs.existsSync(serviceFile)) {
         prompts.cancel(
           `Service file not found: src/${resourceName}/${resourceName}.service.ts\n` +
-          `Run "zimt generate ${resourceName}" first.`,
+            `Run "zimt generate ${resourceName}" first.`,
         );
         process.exit(1);
       }
@@ -85,9 +85,13 @@ export const cacheCommand = new Command('r')
       await appendRedisEnvVar(targetDir);
       s.stop('✓ Updated .env.example');
 
-      prompts.outro(chalk.green(`\n✓ Redis caching added to ${entityName}Service (TTL: ${ttl}s)\n`));
+      prompts.outro(
+        chalk.green(`\n✓ Redis caching added to ${entityName}Service (TTL: ${ttl}s)\n`),
+      );
       console.log(chalk.yellow('⚠️  Next steps:'));
-      console.log(chalk.yellow('   1. Run: npm install  (installs @nestjs/cache-manager, ioredis)'));
+      console.log(
+        chalk.yellow('   1. Run: npm install  (installs @nestjs/cache-manager, ioredis)'),
+      );
       console.log(chalk.yellow('   2. Add REDIS_URL to your .env file'));
       console.log(chalk.yellow('   3. Ensure Redis is running (see docker-compose.yml)\n'));
     } catch (error: any) {
@@ -187,16 +191,6 @@ import { Cache } from 'cache-manager';
     );
   };
 
-  const wrapFindOne = (src: string): string => {
-    return src.replace(
-      /async findOne\(id: string\)\s*\{/,
-      `async findOne(id: string) {
-    const cacheKey = \`${resourceName}:one:\${id}\`;
-    const cached = await this.cacheManager.get(cacheKey);
-    if (cached) return cached;`,
-    );
-  };
-
   let updated = cacheImport + content;
   updated = injectCacheInConstructor(updated);
   updated = wrapFindAll(updated);
@@ -213,10 +207,7 @@ async function addCacheModuleToApp(appModulePath: string): Promise<void> {
 
   updated = `import { AppCacheModule } from './cache/cache.module';\n` + updated;
 
-  updated = updated.replace(
-    /imports:\s*\[/,
-    `imports: [\n    AppCacheModule,`,
-  );
+  updated = updated.replace(/imports:\s*\[/, `imports: [\n    AppCacheModule,`);
 
   await fs.writeFile(appModulePath, updated, 'utf-8');
 }
@@ -238,10 +229,7 @@ async function addRedisToDockerCompose(composePath: string): Promise<void> {
       - app-network
 `;
 
-  let updated = content.replace(
-    /(volumes:\s*\n\s*pgdata:)/,
-    `${redisService}\n$1`,
-  );
+  let updated = content.replace(/(volumes:\s*\n\s*pgdata:)/, `${redisService}\n$1`);
 
   await fs.writeFile(composePath, updated, 'utf-8');
 }

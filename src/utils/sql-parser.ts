@@ -107,7 +107,12 @@ export function parseSqlCreateTable(sql: string): ParsedSqlTable {
       }
       continue;
     }
-    if (upperTrimmed.startsWith('FOREIGN KEY') || upperTrimmed.startsWith('CONSTRAINT') || upperTrimmed.startsWith('CHECK') || upperTrimmed.startsWith('INDEX')) {
+    if (
+      upperTrimmed.startsWith('FOREIGN KEY') ||
+      upperTrimmed.startsWith('CONSTRAINT') ||
+      upperTrimmed.startsWith('CHECK') ||
+      upperTrimmed.startsWith('INDEX')
+    ) {
       continue;
     }
 
@@ -251,7 +256,14 @@ export function snakeToPascal(str: string): string {
 }
 
 export function tableNameToEntityName(tableName: string): string {
-  const singular = tableName.replace(/s$/, '');
+  let singular: string;
+  if (tableName.endsWith('ies')) {
+    singular = tableName.slice(0, -3) + 'y';
+  } else if (tableName.endsWith('s')) {
+    singular = tableName.slice(0, -1);
+  } else {
+    singular = tableName;
+  }
   return snakeToPascal(singular);
 }
 
