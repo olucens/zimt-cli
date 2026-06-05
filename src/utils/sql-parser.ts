@@ -107,7 +107,12 @@ export function parseSqlCreateTable(sql: string): ParsedSqlTable {
       }
       continue;
     }
-    if (upperTrimmed.startsWith('FOREIGN KEY') || upperTrimmed.startsWith('CONSTRAINT') || upperTrimmed.startsWith('CHECK') || upperTrimmed.startsWith('INDEX')) {
+    if (
+      upperTrimmed.startsWith('FOREIGN KEY') ||
+      upperTrimmed.startsWith('CONSTRAINT') ||
+      upperTrimmed.startsWith('CHECK') ||
+      upperTrimmed.startsWith('INDEX')
+    ) {
       continue;
     }
 
