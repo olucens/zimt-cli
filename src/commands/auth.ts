@@ -7,7 +7,6 @@ import { Project, SyntaxKind } from 'ts-morph';
 import { copyTemplateFiles, renderTemplate, TemplateContext } from '../utils/template-manager';
 import { PackageManager } from '../types';
 
-// @ts-ignore
 const dirname: string =
   typeof __dirname !== 'undefined'
     ? __dirname
@@ -41,8 +40,7 @@ export const authCommand = new Command('auth')
       const authModulePath = path.join(targetDir, 'src', 'auth', 'auth.module.ts');
       if (fs.existsSync(authModulePath)) {
         const overwrite = await prompts.confirm({
-          message:
-            'Auth module already exists (src/auth/auth.module.ts). Overwrite?',
+          message: 'Auth module already exists (src/auth/auth.module.ts). Overwrite?',
           initialValue: false,
         });
         if (!overwrite) {
@@ -137,7 +135,9 @@ export const authCommand = new Command('auth')
       prompts.outro(chalk.green('\n✓ Auth module added successfully!\n'));
 
       console.log(chalk.yellow('⚠️  Next steps:'));
-      console.log(chalk.yellow('   1. Run: npm install  (to install new deps: bcrypt, @nestjs/jwt, etc.)'));
+      console.log(
+        chalk.yellow('   1. Run: npm install  (to install new deps: bcrypt, @nestjs/jwt, etc.)'),
+      );
       console.log(chalk.yellow('   2. Run: npx prisma migrate dev --name add-user-auth'));
       console.log(chalk.yellow('   3. Run: npx prisma generate'));
       console.log(chalk.yellow('   4. Update your .env with proper JWT secrets\n'));
@@ -198,7 +198,7 @@ async function addAuthDependencies(targetDir: string): Promise<void> {
   await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
 }
 
-async function appendAuthEnvVars(targetDir: string, projectName: string): Promise<void> {
+async function appendAuthEnvVars(targetDir: string, _projectName: string): Promise<void> {
   const envPath = path.join(targetDir, '.env.example');
   if (!fs.existsSync(envPath)) return;
 
@@ -301,8 +301,9 @@ async function wireAuthIntoAppModule(appModulePath: string): Promise<void> {
   ]);
 
   // Replace class declaration to implement NestModule if not already
-  const classDecl = appClass.getExtends();
-  const implementsNestModule = appClass.getImplements().some((i) => i.getExpression().getText() === 'NestModule');
+  const implementsNestModule = appClass
+    .getImplements()
+    .some((i) => i.getExpression().getText() === 'NestModule');
 
   if (!implementsNestModule) {
     appClass.addImplements('NestModule');

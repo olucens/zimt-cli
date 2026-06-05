@@ -8,7 +8,6 @@ import {
   parseSqlCreateTable,
   sqlTypeToPrisma,
   snakeToCamel,
-  snakeToPascal,
   tableNameToEntityName,
   tableNameToResourceName,
   tableNameToRoute,
@@ -95,7 +94,7 @@ async function runGenerateFromName(name: string, parent?: string): Promise<void>
     s.stop('✓ app.module.ts updated');
 
     prompts.outro(chalk.green(`\n✓ Resource "${ResourceName}" created successfully!\n`));
-    console.log(chalk.yellow('⚠️  Don\'t forget to:'));
+    console.log(chalk.yellow("⚠️  Don't forget to:"));
     console.log(chalk.yellow(`   1. Add the ${ResourceName} model to prisma/schema.prisma`));
     console.log(chalk.yellow('   2. Run: npx prisma generate\n'));
   } catch (error: any) {
@@ -144,7 +143,14 @@ async function runGenerateFromSql(sql: string, parent?: string): Promise<void> {
 
     s.start('Generating files...');
     await generateModuleFromSql(resourceDir, resourceName, ResourceName);
-    await generateControllerFromSql(resourceDir, resourceName, ResourceName, routeName, parsed, parent);
+    await generateControllerFromSql(
+      resourceDir,
+      resourceName,
+      ResourceName,
+      routeName,
+      parsed,
+      parent,
+    );
     await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
     await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
     await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
@@ -213,10 +219,6 @@ async function generateController(
   const routePath = parent
     ? `${toPluralRoute(parent.toLowerCase())}/:${parent.toLowerCase()}Id/${toPluralRoute(name)}`
     : toPluralRoute(name);
-
-  const parentParam = parent
-    ? `\n  @Param('${parent.toLowerCase()}Id', ParseUUIDPipe) ${parent.toLowerCase()}Id: string,\n  `
-    : '';
 
   const content = `import {
   Controller,
@@ -519,7 +521,7 @@ async function generateServiceFromSql(
   dir: string,
   name: string,
   Name: string,
-  parsed: ParsedSqlTable,
+  _parsed: ParsedSqlTable,
 ): Promise<void> {
   return generateService(dir, name, Name);
 }
@@ -591,7 +593,15 @@ async function generateRepositoryFromSql(
   const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pkCol = parsed.columns.find((c) => c.isPrimary);
   const pkField = pkCol ? snakeToCamel(pkCol.name) : 'id';
-  const numericSqlTypes = new Set(['serial', 'bigserial', 'smallserial', 'int', 'integer', 'bigint', 'smallint']);
+  const numericSqlTypes = new Set([
+    'serial',
+    'bigserial',
+    'smallserial',
+    'int',
+    'integer',
+    'bigint',
+    'smallint',
+  ]);
   const pkIsNumeric = pkCol ? numericSqlTypes.has(pkCol.sqlType) : false;
   const pkCast = pkIsNumeric ? 'Number(id)' : 'id as any';
 
@@ -916,10 +926,12 @@ async function updateAppModule(
   if (!moduleDecorator) throw new Error('@Module decorator not found');
 
   const decoratorArgs = moduleDecorator.getArguments();
-  if (!decoratorArgs || decoratorArgs.length === 0) throw new Error('@Module decorator has no arguments');
+  if (!decoratorArgs || decoratorArgs.length === 0)
+    throw new Error('@Module decorator has no arguments');
 
   const firstArg = decoratorArgs[0];
-  if (firstArg.getKind() !== SyntaxKind.ObjectLiteralExpression) throw new Error('Invalid @Module decorator structure');
+  if (firstArg.getKind() !== SyntaxKind.ObjectLiteralExpression)
+    throw new Error('Invalid @Module decorator structure');
 
   const objExpr = firstArg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
   const importsProp = objExpr.getProperty('imports');
@@ -1069,7 +1081,14 @@ export async function generateResourceFromSql(
   await fs.ensureDir(dtoDir);
   await fs.ensureDir(entitiesDir);
   await generateModuleFromSql(resourceDir, resourceName, ResourceName);
-  await generateControllerFromSql(resourceDir, resourceName, ResourceName, routeName, parsed, options.parent);
+  await generateControllerFromSql(
+    resourceDir,
+    resourceName,
+    ResourceName,
+    routeName,
+    parsed,
+    options.parent,
+  );
   await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
   await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
   await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
