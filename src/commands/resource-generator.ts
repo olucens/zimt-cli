@@ -37,8 +37,10 @@ const createSubCommand = new Command('create')
   .description('Generate a resource from a SQL CREATE TABLE statement')
   .argument('<sql>', 'SQL CREATE TABLE statement')
   .option('--parent <parent>', 'Parent resource for nested routing (e.g. users)')
-  .action(async (sql: string, options: { parent?: string }) => {
-    await runGenerateFromSql(sql, options.parent);
+  .action(async (sql: string, options: { parent?: string }, command: Command) => {
+    // Commander.js v11 hoists --parent to the parent command's opts when both define it
+    const parent = options.parent ?? (command.parent as any)?.opts()?.parent;
+    await runGenerateFromSql(sql, parent);
   });
 
 generateCommand.addCommand(createSubCommand);
@@ -588,6 +590,9 @@ async function generateRepositoryFromSql(
   const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pkCol = parsed.columns.find((c) => c.isPrimary);
   const pkField = pkCol ? snakeToCamel(pkCol.name) : 'id';
+  const numericSqlTypes = new Set(['serial', 'bigserial', 'smallserial', 'int', 'integer', 'bigint', 'smallint']);
+  const pkIsNumeric = pkCol ? numericSqlTypes.has(pkCol.sqlType) : false;
+  const pkCast = pkIsNumeric ? 'Number(id)' : 'id as any';
 
   const mapFields = parsed.columns
     .map((col) => {
@@ -628,7 +633,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   }
 
   async findById(id: string | number): Promise<${Name} | undefined> {
-    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { ${pkField}: id as any } });
+    const item = await this.prisma.${prismaAccessor}.findUnique({ where: { ${pkField}: ${pkCast} } });
     return item ? this.mapToDomain(item) : undefined;
   }
 
@@ -642,7 +647,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
   async update(id: string | number, data: Update${Name}Dto): Promise<${Name} | undefined> {
     try {
       const item = await this.prisma.${prismaAccessor}.update({
-        where: { ${pkField}: id as any },
+        where: { ${pkField}: ${pkCast} },
         data: data as any,
       });
       return this.mapToDomain(item);
@@ -653,7 +658,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async delete(id: string | number): Promise<boolean> {
     try {
-      await this.prisma.${prismaAccessor}.delete({ where: { ${pkField}: id as any } });
+      await this.prisma.${prismaAccessor}.delete({ where: { ${pkField}: ${pkCast} } });
       return true;
     } catch {
       return false;
