@@ -148,7 +148,7 @@ async function runGenerateFromSql(sql: string, parent?: string): Promise<void> {
     await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
     await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
     await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
-    await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed);
+    await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, parent);
     await generateUnitTests(resourceDir, resourceName, ResourceName);
     await generateE2ETests(targetDir, resourceName, ResourceName);
     s.stop('✓ Files generated');
@@ -586,6 +586,7 @@ async function generateRepositoryFromSql(
   name: string,
   Name: string,
   parsed: ParsedSqlTable,
+  parent?: string,
 ): Promise<void> {
   const prismaAccessor = Name.charAt(0).toLowerCase() + Name.slice(1);
   const pkCol = parsed.columns.find((c) => c.isPrimary);
@@ -593,6 +594,23 @@ async function generateRepositoryFromSql(
   const numericSqlTypes = new Set(['serial', 'bigserial', 'smallserial', 'int', 'integer', 'bigint', 'smallint']);
   const pkIsNumeric = pkCol ? numericSqlTypes.has(pkCol.sqlType) : false;
   const pkCast = pkIsNumeric ? 'Number(id)' : 'id as any';
+
+  // Detect the actual FK column name for the parent relation (e.g. user_id -> userId)
+  const parentFkField = parent
+    ? (() => {
+        const fkColName = `${parent.toLowerCase()}_id`;
+        const fkCol = parsed.columns.find((c) => c.name.toLowerCase() === fkColName);
+        return fkCol ? snakeToCamel(fkCol.name) : null;
+      })()
+    : null;
+
+  const findAllFilter = parentFkField
+    ? `(parentId ? { where: { ${parentFkField}: parentId } } : {})`
+    : `(parentId ? { where: { parentId } } : {})`;
+
+  const createParentSpread = parentFkField
+    ? `...(parentId ? { ${parentFkField}: parentId } : {})`
+    : `...(parentId ? { parentId } : {})`;
 
   const mapFields = parsed.columns
     .map((col) => {
@@ -627,7 +645,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async findAll(parentId?: string): Promise<${Name}[]> {
     const items = await this.prisma.${prismaAccessor}.findMany(
-      (parentId ? { where: { parentId } } : {}) as any,
+      ${findAllFilter} as any,
     );
     return items.map((item) => this.mapToDomain(item));
   }
@@ -639,7 +657,7 @@ export class Prisma${Name}Repository implements I${Name}Repository {
 
   async create(data: Create${Name}Dto, parentId?: string): Promise<${Name}> {
     const item = await this.prisma.${prismaAccessor}.create({
-      data: { ...data, ...(parentId ? { parentId } : {}) } as any,
+      data: { ...data, ${createParentSpread} } as any,
     });
     return this.mapToDomain(item);
   }
@@ -1055,7 +1073,7 @@ export async function generateResourceFromSql(
   await generateServiceFromSql(resourceDir, resourceName, ResourceName, parsed);
   await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
   await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
-  await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed);
+  await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, options.parent);
   await generateUnitTests(resourceDir, resourceName, ResourceName);
   await generateE2ETests(targetDir, resourceName, ResourceName);
 
