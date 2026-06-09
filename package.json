@@ -4,7 +4,7 @@
   "description": "The secret ingredient for production-ready NestJS apps",
   "main": "dist/index.js",
   "bin": {
-    "zimt": "./dist/bin/zimt.js"
+    "zimt": "dist/bin/zimt.js"
   },
   "files": [
     "dist",
@@ -89,7 +89,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Alexander-Lucens/zimt-cli.git"
+    "url": "git+https://github.com/Alexander-Lucens/zimt-cli.git"
   },
   "bugs": {
     "url": "https://github.com/Alexander-Lucens/zimt-cli/issues"
