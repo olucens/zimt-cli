@@ -19,7 +19,8 @@
     "format": "prettier --write 'src/**/*.ts'",
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage --forceExit"
+    "test:cov": "jest --coverage --forceExit",
+    "test:golden": "GOLDEN=1 jest tests/golden --runInBand --forceExit"
   },
   "keywords": [
     "nestjs",

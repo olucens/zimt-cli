@@ -26,6 +26,24 @@ Server running at `http://localhost:4000`. Health check: `GET /health`.
 
 ---
 
+## Headless API (for tools and AI agents)
+
+Every capability is also exposed as a prompt-free programmatic API — no
+terminal, no prompts, `Result`-typed errors:
+
+```ts
+import { initProject, addAuth, generateFromSql, appendModelToSchema, addCache, cloudify } from 'zimt-cli';
+```
+
+See **[AI-USAGE.md](./AI-USAGE.md)** for the full contract, pipeline order, and
+the MCP-ready tool manifest.
+
+> Note: name-based generation (`zimt generate <name>`) is CLI-only sugar — it
+> does not write the Prisma schema, so programmatic consumers must use
+> SQL-mode (`generateFromSql`) exclusively.
+
+---
+
 ## Commands
 
 | Command | What it does | Flags |

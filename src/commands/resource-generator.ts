@@ -85,7 +85,7 @@ async function runGenerateFromName(name: string, parent?: string): Promise<void>
     await generateDTO(dtoDir, resourceName, ResourceName);
     await generateEntity(entitiesDir, resourceName, ResourceName);
     await generateRepository(resourceDir, resourceName, ResourceName);
-    await generateUnitTests(resourceDir, resourceName, ResourceName);
+    await generateUnitTests(resourceDir, resourceName, ResourceName, parent);
     await generateE2ETests(targetDir, resourceName, ResourceName);
     s.stop('✓ Files generated');
 
@@ -155,7 +155,7 @@ async function runGenerateFromSql(sql: string, parent?: string): Promise<void> {
     await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
     await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
     await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, parent);
-    await generateUnitTests(resourceDir, resourceName, ResourceName);
+    await generateUnitTests(resourceDir, resourceName, ResourceName, parent);
     await generateE2ETests(targetDir, resourceName, ResourceName);
     s.stop('✓ Files generated');
 
@@ -707,7 +707,12 @@ ${mapFields}
 
 // ─── UNIT + E2E TESTS ────────────────────────────────────────────────────────
 
-async function generateUnitTests(dir: string, name: string, Name: string): Promise<void> {
+async function generateUnitTests(
+  dir: string,
+  name: string,
+  Name: string,
+  parent?: string,
+): Promise<void> {
   const serviceSpec = `import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ${Name}Service } from './${name}.service';
@@ -814,7 +819,7 @@ describe('${Name}Controller', () => {
 
   it('findAll should call service.findAll', async () => {
     service.findAll.mockResolvedValue([]);
-    await controller.findAll();
+    await controller.findAll(${parent ? `'123e4567-e89b-12d3-a456-426614174000'` : ''});
     expect(service.findAll).toHaveBeenCalled();
   });
 });
@@ -1054,7 +1059,7 @@ export async function generateResourceByName(
   await generateDTO(dtoDir, resourceName, ResourceName);
   await generateEntity(entitiesDir, resourceName, ResourceName);
   await generateRepository(resourceDir, resourceName, ResourceName);
-  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateUnitTests(resourceDir, resourceName, ResourceName, options.parent);
   await generateE2ETests(targetDir, resourceName, ResourceName);
 
   if (fs.existsSync(appModulePath)) {
@@ -1093,7 +1098,7 @@ export async function generateResourceFromSql(
   await generateDTOFromSql(dtoDir, resourceName, ResourceName, parsed);
   await generateEntityFromSql(entitiesDir, resourceName, ResourceName, parsed);
   await generateRepositoryFromSql(resourceDir, resourceName, ResourceName, parsed, options.parent);
-  await generateUnitTests(resourceDir, resourceName, ResourceName);
+  await generateUnitTests(resourceDir, resourceName, ResourceName, options.parent);
   await generateE2ETests(targetDir, resourceName, ResourceName);
 
   if (fs.existsSync(appModulePath)) {
