@@ -173,7 +173,9 @@ export async function addCacheCore(
 
   const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
   if (!fs.existsSync(appModulePath)) {
-    throw new Error(`Not a NestJS project: ${path.join(targetDir, 'src', 'app.module.ts')} not found`);
+    throw new Error(
+      `Not a NestJS project: ${path.join(targetDir, 'src', 'app.module.ts')} not found`,
+    );
   }
 
   // Resource folders may be named after the singular entity (name mode) or

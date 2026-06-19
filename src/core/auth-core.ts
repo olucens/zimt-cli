@@ -212,7 +212,9 @@ export async function addAuthCore(targetDir: string, opts: AuthCoreOptions = {})
 
   const appModulePath = path.join(targetDir, 'src', 'app.module.ts');
   if (!fs.existsSync(appModulePath)) {
-    throw new Error(`Not a NestJS project: ${path.join(targetDir, 'src', 'app.module.ts')} not found`);
+    throw new Error(
+      `Not a NestJS project: ${path.join(targetDir, 'src', 'app.module.ts')} not found`,
+    );
   }
 
   const authModulePath = path.join(targetDir, 'src', 'auth', 'auth.module.ts');

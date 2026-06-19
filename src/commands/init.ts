@@ -1,5 +1,5 @@
 import * as fs from 'fs-extra';
-import * as path from 'path';
+// import * as path from 'path';
 import * as prompts from '@clack/prompts';
 import chalk from 'chalk';
 import { copyTemplateFiles, TemplateContext } from '../utils/template-manager';
