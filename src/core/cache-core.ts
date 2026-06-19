@@ -6,18 +6,17 @@ export async function addCacheDependencies(targetDir: string): Promise<void> {
   if (!fs.existsSync(pkgPath)) return;
 
   const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf-8'));
+  // NestJS 11 stack: @nestjs/cache-manager@3 requires cache-manager>=6 (Keyv-based)
+  // and keyv>=5. The legacy cache-manager@5 + cache-manager-ioredis-yet API is
+  // incompatible with @nestjs/common@11 (peer ^9||^10) and was the ERESOLVE cause.
   const cacheDeps: Record<string, string> = {
-    '@nestjs/cache-manager': '^2.0.0',
-    'cache-manager': '^5.0.0',
-    'cache-manager-ioredis-yet': '^2.0.0',
-    ioredis: '^5.3.0',
-  };
-  const cacheDevDeps: Record<string, string> = {
-    '@types/cache-manager': '^4.0.0',
+    '@nestjs/cache-manager': '^3.0.0',
+    'cache-manager': '^6.0.0',
+    '@keyv/redis': '^5.0.0',
+    keyv: '^5.0.0',
   };
 
   pkg.dependencies = { ...pkg.dependencies, ...cacheDeps };
-  pkg.devDependencies = { ...pkg.devDependencies, ...cacheDevDeps };
 
   await fs.writeFile(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
 }
@@ -28,20 +27,16 @@ export async function createCacheModule(targetDir: string): Promise<void> {
 
   const cacheModuleContent = `import { Global, Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-ioredis-yet';
+import { createKeyv } from '@keyv/redis';
 
 @Global()
 @Module({
   imports: [
     CacheModule.registerAsync({
       isGlobal: true,
-      useFactory: async () => ({
-        store: await redisStore({
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT || '6379', 10),
-          password: process.env.REDIS_PASSWORD || undefined,
-        }),
-        ttl: parseInt(process.env.CACHE_TTL || '300', 10),
+      useFactory: () => ({
+        stores: [createKeyv(process.env.REDIS_URL || 'redis://localhost:6379')],
+        ttl: parseInt(process.env.CACHE_TTL || '300', 10) * 1000,
       }),
     }),
   ],
@@ -65,6 +60,7 @@ export async function wrapServiceWithCache(
     return;
   }
 
+  // The generated resource service already imports Inject from @nestjs/common.
   const cacheImport = `import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 `;
@@ -141,10 +137,8 @@ export async function appendRedisEnvVar(targetDir: string): Promise<void> {
   if (content.includes('REDIS_URL') || content.includes('REDIS_HOST')) return;
 
   const redisVars = `
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
+# Redis (cache-manager + Keyv). CACHE_TTL is in seconds.
+REDIS_URL=redis://localhost:6379
 CACHE_TTL=300
 `;
   await fs.appendFile(envPath, redisVars);
