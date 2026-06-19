@@ -1,5 +1,17 @@
 # Zimt-CLI Changelog
 
+## [1.1.1] — June 2026
+
+### Fixed
+
+- **`zimt cache` / `addCache` now generates a project that installs and compiles on NestJS 11.**
+  The cache layer pinned `@nestjs/cache-manager@^2` (peer `@nestjs/common ^9||^10`), which
+  collided with the generated NestJS 11 base → `npm install` failed with ERESOLVE. Upgraded to
+  the Keyv-based stack: `@nestjs/cache-manager@^3`, `cache-manager@^6`, `@keyv/redis@^5`, `keyv@^5`.
+  The cache module now uses `createKeyv(REDIS_URL)`; `.env.example` exposes `REDIS_URL` + `CACHE_TTL`.
+- **Golden pipeline now exercises `addCache`** before the `npm install` + `prisma generate` +
+  `tsc --noEmit` check, so a generated project's cache deps/code can no longer regress unnoticed.
+
 ## [1.0.0-beta] — June 2026
 
 ### Added

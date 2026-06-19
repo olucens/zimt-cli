@@ -13,6 +13,7 @@ import {
   addAuth,
   generateFromSql,
   appendModelToSchema,
+  addCache,
 } from '../../src/api';
 
 const golden = process.env.GOLDEN === '1' ? describe : describe.skip;
@@ -58,6 +59,12 @@ golden('Golden pipeline: generated project compiles', () => {
     if (!products.ok) return;
     const appendProducts = await appendModelToSchema(dir, products.value.prismaModel);
     expect(appendProducts.ok).toBe(true);
+
+    // Cache layer must be exercised too — its deps/templates have to stay
+    // compatible with the generated NestJS version (regression: @nestjs/cache-manager
+    // v2 vs @nestjs/common v11 ERESOLVE). The install+tsc step below proves it.
+    const cache = await addCache(dir, 'orders', { ttl: 60, silent: true });
+    expect(cache.ok).toBe(true);
 
     const schema = readFile(dir, 'prisma/schema.prisma');
     expect(schema).toContain('model User');
